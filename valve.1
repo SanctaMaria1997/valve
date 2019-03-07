@@ -1,0 +1,85 @@
+.Dd $Mdocdate$
+.Dt VALVE 1
+.Os
+.Sh 
+.Nm valve
+.Nd find memory leaks in C programs
+.Sh SYNOPSIS
+.Nm valve
+.Op Fl p Ar shared-object
+.Op Fl c Ar source-code-context
+.Ar my-program
+.Ar [arg1 arg2 ...]
+.Sh DESCRIPTION
+.Nm valve is a utility for finding memory errors in C programs.
+It works by patching the libc functions
+.Fn malloc ,
+.Fn calloc ,
+.Fn realloc
+and
+.Fn free ;
+these functions are replaced with equivalents that gather statistics on memory (mis)use. Requests are then transparently dispatched to the standard libc functions.
+When the program has finished executing,
+.Nm valve prints a memory error report to stderr.
+The report shows the source location of each memory error (including the file name, line number and function name) and the actual C source code that was responsible for the error.
+.Pp
+.Nm valve assumes that the target program's source code and any executable or shared objects are located in the present working directory or a subdirectory of it.
+When looking for source code and libraries,
+.Nm valve
+does a recursive, breadth-first search of the working directory and its children, halting at the first matching file name.
+The program's main executable is patched automatically; any shared objects must be patched explicitly with the
+.Op Fl p
+option.
+.Pp
+In order for
+.Nm valve
+to debug a program it must be an ELF executable compiled with the
+.Op Fl g
+option so that it contains DWARF debugging information; there are no other special requirements for target programs.
+.Sh OPTIONS
+.Bl -tag -width indent
+.It Fl p Ar libname.so
+.Pp
+Patch the memory management functions in the shared object given by
+.Ar libname.so
+.It Fl c Ar n
+.Pp
+In the error report, print source code with
+.Ar n
+lines of context (before) and
+.Ar n
+lines of context (after) the line of interest.
+.Sh EXAMPLES
+.Pp
+To debug the main executable of "my-program":
+.Pp
+.D1 valve ./my-program
+.Pp
+To debug both the main executable of "my-program", and a library "libmy-library.so":
+.Pp
+.D1 valve -p libmy-library.so ./my-program
+.Pp
+To debug as before, but with 4 lines of source code context, and passing an argument to "my-program":
+.Pp
+.D1 valve -p libmy-library.so -c 2 ./my-program arg
+.Sh CAVEATS
+.Nm valve
+can sometimes produce false positives for memory errors; if two objects in a process are sharing dynamically allocated memory between them, and the object that allocates the memory is not the same object that frees it,
+.Nm valve's
+internal state can become inconsistent.
+The solution is just to patch all objects that you think are sharing memory in this way.
+.Pp
+Because most of
+.Nm valve's
+data and code resides in the target process, there is a small but real chance that a bug such as a buffer overflow could corrupt
+.Nm valve's
+database. Therefore you should ensure that your program is reasonably stable before analysing its memory usage with
+.Nm valve .
+.Pp
+.Nm valve
+debugging is costly in terms of memory; in general
+.Nm valve
+allocates at least 48 bytes for each unique "allocation point" in the target program.
+.Sh AUTHORS
+.Nm valve
+was written by Alan Pilbeam in 2018/2019
