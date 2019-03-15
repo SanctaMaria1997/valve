@@ -7,9 +7,9 @@ valve.o: valve.c
 libvalve.so: libvalve.o dwarfy.o valve_util.o elf_util.o
 	cc -shared -fPIC libvalve.o dwarfy.o valve_util.o elf_util.o -o libvalve.so -ldl
 libvalve.o: libvalve.c
-	cc -c -fPIC libvalve.c -o libvalve.o
+	cc -c -DFREEBSD -fPIC libvalve.c -o libvalve.o
 dwarfy.o: dwarfy.c
-	cc -c -fPIC dwarfy.c -o dwarfy.o
+	cc -c -DFREEBSD -fPIC dwarfy.c -o dwarfy.o
 valve_util.o: valve_util.c
 	cc -c -fPIC valve_util.c -o valve_util.o
 elf_util.o: elf_util.c

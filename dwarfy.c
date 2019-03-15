@@ -40,6 +40,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "elf_util.h"
 #include "dwarfy.h"
 
+#ifdef FREEBSD
+#define DW_LNE_set_discriminator 4
+#endif
+
 int DWARFY_FORMAT;
 unsigned long int DEBUG_INFO_SIZE;
 unsigned long int COMPILATION_UNIT_OFFSET;
@@ -657,9 +661,6 @@ void dwarfy_execute_line_number_program(DwarfyCompilationUnit *compilation_unit,
           state_machine.address += *((unsigned short*)(*address));
           (*address) += 2;
           break;
-        default:
-          puts("DEFAULT2");
-          exit(1);
       }
     }
     else // special opcode
