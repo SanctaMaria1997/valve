@@ -11,7 +11,8 @@
 .Ar my-program
 .Ar [arg1 arg2 ...]
 .Sh DESCRIPTION
-.Nm valve is a utility for finding memory errors in C programs.
+.Nm valve
+is a utility for finding memory errors in C programs.
 It works by patching the libc functions
 .Fn malloc ,
 .Fn calloc ,
@@ -20,10 +21,11 @@ and
 .Fn free ;
 these functions are replaced with equivalents that gather statistics on memory (mis)use. Requests are then transparently dispatched to the standard libc functions.
 When the program has finished executing,
-.Nm valve prints a memory error report to stderr.
-The report shows the source location of each memory error (including the file name, line number and function name) and the actual C source code that was responsible for the error.
+.Nm valve
+prints a memory error report to stderr. The report shows the source location of each memory error (including the file name, line number and function name) and the actual C source code that was responsible for the error.
 .Pp
-.Nm valve assumes that the target program's source code and any executable or shared objects are located in the present working directory or a subdirectory of it.
+.Nm valve
+assumes that the target program's source code and any executable or shared objects are located in the present working directory or a subdirectory of it.
 When looking for source code and libraries,
 .Nm valve
 does a recursive, breadth-first search of the working directory and its children, halting at the first matching file name.

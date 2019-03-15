@@ -29,7 +29,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <elf.h>
+#ifdef LINUX
+#include <libdwarf/dwarf.h>
+#elif defined(FREEBSD)
 #include <dwarf.h>
+#endif
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -272,17 +276,19 @@ void dwarfy_consume_DIEs(DwarfyDIEList_t *DIE_list,DwarfyCompilationUnit *compil
     abbreviation = RB_FIND(DwarfyAbbreviationTree,&compilation_unit->abbreviations,&match);
     spec = LIST_FIRST(&abbreviation->specs);
     DIE_is_function = 0;
+    
     while(spec)
     {
-      
       if(abbreviation->tag == DW_TAG_subprogram)
       {
+          
         DIE_is_function = 1;
-        
         if(spec->name == DW_AT_low_pc)
-          function_address = **((unsigned long int**)address);
+          function_address = (**((unsigned long int**)address)) - DWARFY_ELF_BASE_ADDRESS + DWARFY_ELF_RUNTIME_ADDRESS;
         else if(spec->name == DW_AT_name)
           strcpy(function_name,((char*)DEBUG_STR) + **((unsigned int**)address));
+      
+          
       }
       else if(abbreviation->tag == DW_TAG_compile_unit)
       {
@@ -370,7 +376,7 @@ void dwarfy_consume_DIEs(DwarfyDIEList_t *DIE_list,DwarfyCompilationUnit *compil
         }
         case DW_FORM_sec_offset:
         {
-          (*address) += 8;
+          (*address) += 4;
           break;
         }
         case DW_FORM_strp:
@@ -422,7 +428,6 @@ void dwarfy_consume_DIEs(DwarfyDIEList_t *DIE_list,DwarfyCompilationUnit *compil
     LIST_INSERT_HEAD(DIE_list,DIE,linkage);
     
   }
-
 }
 
 void dwarfy_consume_abbreviations(DwarfyCompilationUnit *compilation_unit,unsigned char **address)
@@ -608,6 +613,9 @@ void dwarfy_execute_line_number_program(DwarfyCompilationUnit *compilation_unit,
           size = dwarfy_consume_unsigned_LEB128(address);
           break;
         }
+        case DW_LNE_set_discriminator:
+          dwarfy_consume_unsigned_LEB128(address);
+          break;
       }
     }
     else if(opcode < line_number_header->opcode_base) // standard opcode
@@ -649,6 +657,9 @@ void dwarfy_execute_line_number_program(DwarfyCompilationUnit *compilation_unit,
           state_machine.address += *((unsigned short*)(*address));
           (*address) += 2;
           break;
+        default:
+          puts("DEFAULT2");
+          exit(1);
       }
     }
     else // special opcode
@@ -667,7 +678,7 @@ void dwarfy_line_number_state_machine_out(DwarfyLineNumberStateMachine *state_ma
   DwarfyObjectRecord match_object_record;
   DwarfySourceRecord *source_record;
   
-  match_object_record.address = state_machine->address;
+  match_object_record.address = state_machine->address - DWARFY_ELF_BASE_ADDRESS + DWARFY_ELF_RUNTIME_ADDRESS;
   
   if(0 == (object_record = RB_FIND(DwarfyObjectRecordTree,&compilation_unit->line_numbers,&match_object_record)))
   {
@@ -798,7 +809,7 @@ long int dwarfy_consume_signed_LEB128(unsigned char **address)
   for(i = 0; 1; i++) 
   {
     byte = (unsigned long int)((*address)[i]);
-    result |= ((byte & 0x7f) << shift);  
+    result |= ((byte & 0x7f) << shift);
     shift += 7;
     if ((byte & 0x80) == 0) 
       break; 

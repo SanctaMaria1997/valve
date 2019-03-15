@@ -31,7 +31,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef LIBVALVE_H
 #define LIBVALVE_H
 
+#ifdef LINUX
+#include "tree.h"
+#elif defined(FREEBSD)
 #include <sys/tree.h>
+#endif
 
 typedef RB_HEAD(AllocationPointTree,AllocationPoint) AllocationPointTree_t;
 typedef RB_HEAD(MemoryBlockTree,MemoryBlock) MemoryBlockTree_t;

@@ -93,7 +93,7 @@ void  __attribute__((constructor)) libvalve_init()
     LIBVALVE_SHARED_MEM->libraries[i].dwarf = load_dwarf(find_file(name,"."),LIBVALVE_SHARED_MEM->libraries[i].base_address);
     i++;
   }
-    
+  
 }
 
 AllocationPoint *create_allocation_point(long int address)
@@ -328,7 +328,6 @@ void leak_report()
       do
       {
         elf_address--;
-        
         match_location_record.address = elf_address;
         
         i = 0;
@@ -361,7 +360,6 @@ void leak_report()
         nearest_function = RB_FIND(DwarfyFunctionTree,&compilation_unit->functions,&match_function);
       } while (!nearest_function);
 
-      
       if(allocation_point->current_bytes_allocated && allocation_point->current_num_allocations)
       {
         
@@ -371,7 +369,7 @@ void leak_report()
         match_source_file.file_name = compilation_unit->file_names[nearest_source_record->file - 1];
         
         source_code = RB_FIND(DwarfySourceCodeTree,&compilation_unit->source_code,&match_source_file);
-        
+
         for(line_number = nearest_source_record->line_number - LIBVALVE_SHARED_MEM->config.context_num_lines; line_number <= nearest_source_record->line_number + LIBVALVE_SHARED_MEM->config.context_num_lines; line_number++)
         {
             if(line_number > 0 && line_number <= source_code->num_lines)

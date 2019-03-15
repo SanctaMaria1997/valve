@@ -31,8 +31,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef DWARFY_H
 #define DWARFY_H
 
+#ifdef LINUX
+#include "queue.h"
+#include "tree.h"
+#elif defined(FREEBSD)
 #include <sys/queue.h>
 #include <sys/tree.h>
+#endif
 
 typedef LIST_HEAD(DwarfySourceRecordList,DwarfySourceRecord) DwarfySourceRecordList_t;
 typedef LIST_HEAD(DWARF_DATAList,DWARF_DATA) DWARF_DATAList_t;

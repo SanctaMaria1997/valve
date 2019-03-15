@@ -28,6 +28,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 */
 
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,7 +38,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/shm.h>
 #include <sys/ptrace.h>
 #include <elf.h>
+#ifdef LINUX
+#include <libdwarf/dwarf.h>
+#elif defined(FREEBSD)
 #include <dwarf.h>
+#endif
 #include <getopt.h>
 #include "elf_util.h"
 #include "valve_util.h"
@@ -62,11 +68,15 @@ Library *lookup_library(char *name);
 
 void patch_function(pid_t pid,unsigned long int orig,unsigned long int wrapper)
 {
+#ifdef LINUX
+  ptrace(PTRACE_POKEDATA,pid,(caddr_t)orig,wrapper);
+#elif defined(FREEBSD)
   int high,low;
   low = (int)(wrapper & 0xFFFFFFFF);
   high = (int)((wrapper & 0xFFFFFFFF00000000) >> 32);
   ptrace(PTRACE_POKEDATA,pid,(caddr_t)orig,low);
   ptrace(PTRACE_POKEDATA,pid,(caddr_t)(orig + 4),high);
+#endif
 }
 
 void patch_mem_functions(pid_t pid,Library *destination,Library *source)
@@ -98,6 +108,93 @@ void patch_mem_functions(pid_t pid,Library *destination,Library *source)
                    get_elf_symbol(source->elf,"free_wrapper") - get_elf_base_address(source->elf) + source->base_address);
   }
 }
+
+#ifdef LINUX
+
+void load_mem_regions(pid_t pid)
+{
+  FILE *vm_maps;
+  char pid_str[32];
+  char path[64];
+  char module_path[512];
+  char buff[512];
+  int i,j,k;
+  int bytes_read;
+  char d[128];
+  int line_offset;
+  int file_offset;
+  void *low_address;
+  void *high_address;
+  char c;
+  
+  i = 0;
+  j = 0;
+  k = 0;
+
+  file_offset = 0;
+  low_address = 0;
+  high_address = 0;
+  
+  sprintf(pid_str,"%d",pid);
+  strcpy(path,"/proc/");
+  strcat(path,pid_str);
+  strcat(path,"/maps");
+  
+  vm_maps = fopen(path,"rb");
+
+  do
+  {
+    file_offset = 0;
+    line_offset = 0;
+    do
+    {
+      fscanf(vm_maps,"%c",&c);
+      buff[file_offset] = c;
+      file_offset++;
+    } while(c != '\n' && !feof(vm_maps));
+    
+    buff[file_offset] = 0;
+    
+    module_path[0] = 0;
+    sscanf(buff,"%lx-%lx %s %s %s %s %n",&low_address,&high_address,d,d,d,d,&bytes_read); 
+    
+    line_offset = bytes_read;
+    
+    if(buff[line_offset] == '/')
+    {
+        sscanf(buff + line_offset,"%s%n",module_path,&bytes_read);
+        line_offset += bytes_read;
+
+        while(buff[line_offset])
+        {
+            sscanf(buff + line_offset,"%c",d);
+            line_offset++;
+        }
+    }
+    
+    for(j = 0; j < k; j++)
+    {
+      if(!strcmp(file_part(module_path),file_part(LIBVALVE_SHARED_MEM->libraries[j].name)))
+        goto skip;
+    }
+    
+    if(strlen(module_path) == 0)
+        goto skip;
+    
+    LIBVALVE_SHARED_MEM->libraries[k].base_address = (unsigned long int)(low_address);
+    
+    strcpy(LIBVALVE_SHARED_MEM->libraries[k].name,file_part(module_path));
+    
+    k++;
+    skip:
+    i++;
+
+  } while(!feof(vm_maps)); 
+
+  fclose(vm_maps);
+}
+
+#elif defined(FREEBSD)
 
 void load_mem_regions(pid_t pid)
 {
@@ -134,6 +231,8 @@ void load_mem_regions(pid_t pid)
   } while(entry.pve_start != prev_start); 
 
 }
+
+#endif
 
 int main(int argc,char **argv)
 {
@@ -197,7 +296,12 @@ int main(int argc,char **argv)
       {
         ptrace(PTRACE_TRACEME,0,0,0);
         putenv("LD_PRELOAD=/usr/local/lib/libvalve.so");
+
+#ifdef LINUX
+        execvpe(target_name,argv + optind,environ);
+#elif defined(FREEBSD)
         exect(target_name,argv + optind,environ);
+#endif
         break;
       }
       default:
@@ -208,12 +312,13 @@ int main(int argc,char **argv)
         waitpid(pid,&status,0);
         
         load_mem_regions(pid);
-
+        
         libvalve = lookup_library("libvalve.so");
         target = lookup_library(target_name);
+        
         target->elf = load_elf(find_file(file_part(target_name),"."));
         libvalve->elf = load_elf(find_file("libvalve.so","/usr/local/lib/"));
-       
+        
         patch_mem_functions(pid,target,libvalve);
         
         for(i = 0; i < LIBVALVE_NUM_PATCHED_LIBS; i++)
@@ -243,7 +348,7 @@ int main(int argc,char **argv)
         for(;;)
         {
           waitpid(pid,&status,0);
-          
+        
           if(WIFSTOPPED(status))
           {
             ptrace(PTRACE_CONT,pid,(caddr_t)1,0);  
